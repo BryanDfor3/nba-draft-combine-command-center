@@ -1,0 +1,69 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Virtual environments
+env/
+venv/
+ENV/
+.venv/
+
+# VS Code settings
+.vscode/
+
+# PyCharm settings
+.idea/
+
+# MacOS system files
+.DS_Store
+
+# Windows system files
+Thumbs.db
+ehthumbs.db
+
+# Python egg metadata and build artifacts
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Data files (if large or generated)
+*.csv
+*.tsv
+*.xlsx
+*.xls
+*.parquet
+*.h5
+
+# Logs
+*.log
+
+# R-specific ignores
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+.Rproj
+
+# Quarto / R Markdown outputs
+*.html
+*.pdf
+*.docx
+*_cache/
+_cache/
+*.utf8.md
+
+# Shiny app runtime files
+shinyapps/
+rsconnect/
+
+# Ignore your output files
+nba_draft_combine_data.csv
+nba_draft_combine_ptiles.csv

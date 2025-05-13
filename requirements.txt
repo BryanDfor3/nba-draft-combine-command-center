@@ -1,0 +1,6 @@
+pandas
+numpy
+scipy
+nba_api
+time
+requests
