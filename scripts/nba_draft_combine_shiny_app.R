@@ -691,7 +691,7 @@ server <- function(input, output, session) {
             plot.background = element_rect(fill = "floralwhite", color = "floralwhite"),
             plot.margin = margin(10, 50, 10, 15),
             plot.title = element_text(size = 14, face = "bold", hjust=0.5),
-            plot.subtitle = element_text(size = 8.5, hjust = 0.5),
+            plot.subtitle = element_text(size = 9, hjust = 0.5),
             panel.background = element_rect(fill = "floralwhite", color = "floralwhite"),
             text = element_text(family="menlo"),
             aspect.ratio = 4 / 3
