@@ -201,7 +201,7 @@ measurements <- c("N/A", "Height", "Weight", "Wingspan", "Standing Reach", "Stan
 
 ############ SCRIMMAGE DATA CODE START ############ 
 
-scrimmage_data <- read.csv('/Users/bryandavis/combine_scrimmage_boxscores.csv')
+scrimmage_data <- read.csv('combine_scrimmage_boxscores.csv')
 custom_palette <- as.character(paletteer::paletteer_d("Redmonder::dPBIPuGn"))[3:9]
 
 scrimmage_data$Game <- (scrimmage_data$Day - 1) * 2 + scrimmage_data$Game
