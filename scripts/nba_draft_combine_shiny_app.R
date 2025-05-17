@@ -9,10 +9,11 @@ library(tidyr) #for data pivoting
 library(purrr) #for map function
 library(shadowtext) #for shadowed text on lollipop chart mark labels
 library(gt) #for gt table
+library(gtExtras) #for gt table row coloring
 library(glue) #for table formatting
 
 # Read in the data and make initial transformations
-all_data <- read.csv('nba_draft_combine_ptiles (old).csv')
+all_data <- read.csv('nba_draft_combine_ptiles.csv')
 all_data <- all_data %>%
   mutate(PLUS_WS = if_else(PLUS_WS >=0, paste0("+", PLUS_WS), as.character(PLUS_WS)))
 
@@ -52,7 +53,7 @@ get_position_means <- function(data, position) {
   means <- filtered_data %>%
     summarise(across(c('HEIGHT_WO_SHOES_PTILE', 'WEIGHT_PTILE', 'WINGSPAN_PTILE',
                        'STANDING_REACH_PTILE', 'STANDING_VERTICAL_LEAP_PTILE', 
-                       'MAX_VERTICAL_LEAP_PTILE', 'LANE_AGILITY_TIME_PTILE', 
+                       'MAX_VERTICAL_LEAP_PTILE', 'LANE_AGILITY_TIME_PTILE','MODIFIED_LANE_AGILITY_TIME_PTILE', 
                        'THREE_QUARTER_SPRINT_PTILE', 'HAND_SIZE_PTILE'), 
                      function(x) mean(x, na.rm = TRUE))) %>%
     mutate(POSITION = standardized_position) %>%
@@ -71,20 +72,20 @@ position_means <- do.call(rbind, lapply(standardized_positions, function(pos) ge
 
 #Rename the position_means fields 
 names(position_means) <- c('POSITION','HEIGHT','WEIGHT',
-                           'WINGSPAN','STAND.REACH','STAND.VERT',
-                           'MAX VERT','LANE AGILITY','SPRINT','HAND SIZE')
+                           'WINGSPAN','ST.REACH','ST.VERT',
+                           'MAX VERT','LANE AGILITY','SHUT.RUN', 'SPRINT','HAND SIZE')
 
 #Fill NAs with zeros
 all_data[,c('HEIGHT_WO_SHOES_PTILE', 'WEIGHT_PTILE', 'WINGSPAN_PTILE',
             'STANDING_REACH_PTILE', 'STANDING_VERTICAL_LEAP_PTILE', 
-            'MAX_VERTICAL_LEAP_PTILE', 'LANE_AGILITY_TIME_PTILE', 
+            'MAX_VERTICAL_LEAP_PTILE', 'LANE_AGILITY_TIME_PTILE', 'MODIFIED_LANE_AGILITY_TIME_PTILE',
             'THREE_QUARTER_SPRINT_PTILE', 'HAND_SIZE_PTILE')][is.na(all_data[,c('HEIGHT_WO_SHOES_PTILE', 'WEIGHT_PTILE', 'WINGSPAN_PTILE',
                                                                                 'STANDING_REACH_PTILE', 'STANDING_VERTICAL_LEAP_PTILE', 
-                                                                                'MAX_VERTICAL_LEAP_PTILE', 'LANE_AGILITY_TIME_PTILE', 
+                                                                                'MAX_VERTICAL_LEAP_PTILE', 'LANE_AGILITY_TIME_PTILE','MODIFIED_LANE_AGILITY_TIME_PTILE', 
                                                                                 'THREE_QUARTER_SPRINT_PTILE', 'HAND_SIZE_PTILE')])] <- 0
                 
 #Add dummy columns to the position means dataframe
-position_means <- cbind(position_means, SEASON=0, PLAYER_NAME="", PLUS_WS="NA", WEIGHT_t="NA", HEIGHT_t="NA", STANDARDIZED_POSITION="NA", zero_count = 0)
+position_means <- cbind(position_means, SEASON=0, PLAYER_NAME="", PLUS_WS="NA", WEIGHT_t="NA", HEIGHT_t="NA", STANDARDIZED_POSITION="NA", nonzero_count = 0)
 
 #Use the standardize_position function to standardize the position names in all_data
 all_data <- all_data |>
@@ -113,38 +114,40 @@ all_data$PERFORMANCE <- (all_data$HEIGHT_WO_SHOES_PTILE +
                             all_data$STANDING_VERTICAL_LEAP_PTILE +
                             all_data$MAX_VERTICAL_LEAP_PTILE +
                             all_data$LANE_AGILITY_TIME_PTILE +
+                            all_data$MODIFIED_LANE_AGILITY_TIME_PTILE +
                             all_data$THREE_QUARTER_SPRINT_PTILE) -
   (all_data$HEIGHT.x +
      all_data$WINGSPAN.x +
-     all_data$`STAND.REACH` +
-     all_data$`STAND.VERT` +
+     all_data$`ST.REACH` +
+     all_data$`ST.VERT` +
      all_data$`MAX VERT` +
      all_data$`LANE AGILITY` +
-     all_data$THREE_QUARTER_SPRINT_PTILE)
+     all_data$`SHUT.RUN` +
+     all_data$`SPRINT`)
 
 #Sort the data in descending order of Performance (Default sorting order)
 all_data <- all_data[order(all_data$PERFORMANCE, decreasing=TRUE),]
 
 #Count the number of measurements collected for each player (nonzeros)
-all_data$zero_count <- rowSums(all_data[,c('HEIGHT_WO_SHOES_PTILE', 'WEIGHT_PTILE', 'WINGSPAN_PTILE',
+all_data$nonzero_count <- rowSums(all_data[,c('HEIGHT_WO_SHOES_PTILE', 'WEIGHT_PTILE', 'WINGSPAN_PTILE',
                                           'STANDING_REACH_PTILE', 'STANDING_VERTICAL_LEAP_PTILE', 
-                                          'MAX_VERTICAL_LEAP_PTILE', 'LANE_AGILITY_TIME_PTILE', 
+                                          'MAX_VERTICAL_LEAP_PTILE', 'LANE_AGILITY_TIME_PTILE','MODIFIED_LANE_AGILITY_TIME_PTILE', 
                                           'THREE_QUARTER_SPRINT_PTILE', 'HAND_SIZE_PTILE')] != 0, na.rm = TRUE)
 
 #Create a subset of all_data called selected_players
 selected_players = all_data[, c('SEASON', 'PLAYER_NAME','POSITION','PLUS_WS',
                                 'WEIGHT','HEIGHT','HEIGHT_WO_SHOES_PTILE','WEIGHT_PTILE',
                                 'WINGSPAN_PTILE', 'STANDING_REACH_PTILE','STANDING_VERTICAL_LEAP_PTILE', 
-                                'MAX_VERTICAL_LEAP_PTILE', 'LANE_AGILITY_TIME_PTILE','THREE_QUARTER_SPRINT_PTILE',
-                                'HAND_SIZE_PTILE','STANDARDIZED_POSITION', 'zero_count')]
+                                'MAX_VERTICAL_LEAP_PTILE', 'LANE_AGILITY_TIME_PTILE','MODIFIED_LANE_AGILITY_TIME_PTILE','THREE_QUARTER_SPRINT_PTILE',
+                                'HAND_SIZE_PTILE','STANDARDIZED_POSITION', 'nonzero_count')]
 
 #Rename columns in selected_players to prepare for radar charts
 names(selected_players) <- c('SEASON','PLAYER_NAME','POSITION','PLUS_WS', "WEIGHT_t", 'HEIGHT_t',
-                             'HEIGHT','WEIGHT','WINGSPAN','STAND.REACH','STAND.VERT',
-                             'MAX VERT','LANE AGILITY','SPRINT','HAND SIZE', 'STANDARDIZED_POSITION', 'zero_count')
+                             'HEIGHT','WEIGHT','WINGSPAN','ST.REACH','ST.VERT',
+                             'MAX VERT','LANE AGILITY','SHUT.RUN','SPRINT','HAND SIZE', 'STANDARDIZED_POSITION', 'nonzero_count')
 
 #Reorder columns in position_means to prepare for rbind
-position_means <- position_means[,c(11, 12, 1, 13, 14, 15,2:10, 16, 17)]
+position_means <- position_means[,c(12, 13, 1, 14, 15, 16, 2:11, 17, 18)]
 
 #Set the order for the position filter to display
 position_order <- c("PG", "PG-SG", "SG", "SG-SF", "SF", "SF-PF", "PF", "PF-C", "C")
@@ -159,13 +162,108 @@ ft <- floor(initial_wingspan / 12)
 in_ <- initial_wingspan %% 12
 formatted_wingspan <- paste0(ft, "'", in_, '"')
 
-#Add photo url to player id for headshots in the gt table
-all_data$PLAYER_ID <- paste0('https://cdn.nba.com/headshots/nba/latest/1040x760/',
-                              all_data$PLAYER_ID,
-                             '.png')
+#Read in reference data for 2025 headshot info
+headshot_data <- read.csv('2025-headshots-and-origin.csv')
+
+#Join reference data with all data on PLAYER_ID
+all_data <- left_join(all_data, headshot_data, by=c("PLAYER_ID" = "ID"))
+
+#Add School information and Country information for all 2025 draft combine players
+all_data <- all_data %>%                       
+  mutate(
+    School  = ifelse(SEASON == 2025, SCHOOL,  School),
+    Country = ifelse(SEASON == 2025, COUNTRY, Country)
+  )
+
+#Drop extra columns from all data
+all_data <- all_data %>% select(-SCHOOL, -COUNTRY)
+
+#Add photo url to player id for headshots in the gt table, accounting for 2025 players
+
+all_data <- all_data %>%
+  mutate(
+    PLAYER_ID = ifelse(
+      SEASON == 2025 & URL != "",
+      URL,
+      paste0(
+        "https://cdn.nba.com/headshots/nba/latest/1040x760/",
+        PLAYER_ID,
+        ".png"
+      )
+    )
+  )
+
+all_data <- all_data %>% select(-NAME, -URL)
 
 #Create list of dropdown options for sorting
-measurements <- c("N/A", "Height", "Weight", "Wingspan", "Standing Reach", "Standing Vertical", "Max Vertical", "Lane Agility", "3/4 Court Sprint", "Hand Size")
+measurements <- c("N/A", "Height", "Weight", "Wingspan", "Standing Reach", "Standing Vertical", "Max Vertical", "Lane Agility", "Shuttle Run", "3/4 Court Sprint", "Hand Size")
+
+
+############ SCRIMMAGE DATA CODE START ############ 
+
+scrimmage_data <- read.csv('/Users/bryandavis/combine_scrimmage_boxscores.csv')
+custom_palette <- as.character(paletteer::paletteer_d("Redmonder::dPBIPuGn"))[3:9]
+
+scrimmage_data$Game <- (scrimmage_data$Day - 1) * 2 + scrimmage_data$Game
+
+scrimmage_data$GmSc <- with(scrimmage_data,
+                            round((as.numeric(PTS))
+                                  + 0.4 * FG
+                                  - 0.7 * FGA
+                                  - FTA + FT
+                                  + 0.7 * OR
+                                  + 0.3 * DR
+                                  + ST
+                                  + 0.7 * A
+                                  + 0.7 * BS
+                                  - 0.4 * PF
+                                  - TO, 1))
+
+maximum <- max(scrimmage_data$GmSc, na.rm=TRUE)
+minimum <- min(scrimmage_data$GmSc, na.rm=TRUE)
+
+sortable_display <- function(display_vec, pct_vec) {
+  mapply(function(display, pct) {
+    sort_key <- if (is.na(pct)) {
+      "-1.000"
+    } else {
+      # Penalize 0/X slightly more than 0/0
+      penalty <- if (grepl("^0/[1-9]", display)) {
+        -0.001 * as.numeric(sub("0/", "", display))
+      } else {
+        0
+      }
+      sprintf("%05.3f", pct + penalty)
+    }
+    
+    gt::html(glue::glue("<span style='display:none'>{sort_key}</span>{display}"))
+  }, display_vec, pct_vec, SIMPLIFY = FALSE)
+}
+
+scrimmage_data <- scrimmage_data %>%
+  mutate(
+    FG_display = paste0(FG, "/", FGA),
+    FG_pct = ifelse(FGA == 0, NA, FG / FGA),
+    
+    TP_display = paste0(X3P, "/", X3PA),
+    TP_pct = ifelse(X3PA == 0, NA, X3P / X3PA),
+    
+    FT_display = paste0(FT, "/", FTA),
+    FT_pct = ifelse(FTA == 0, NA, FT / FTA)
+  )
+
+scrimmage_data <- scrimmage_data %>%
+  mutate(
+    FG_display = sortable_display(FG_display, FG_pct),
+    TP_display = sortable_display(TP_display, TP_pct),
+    FT_display = sortable_display(FT_display, FT_pct)
+  )
+
+scrimmage_data$Result <- ifelse(scrimmage_data$MARGIN > 0, "W", "L")
+
+
+############ SCRIMMAGE DATA CODE END ############ 
+
 
 # 1.0 USER INTERFACE ----
 ui <- fluidPage(
@@ -318,8 +416,13 @@ ui <- fluidPage(
          )
          )
       ),
+    
+      #Add an additional panel for scrimmages
+      tabPanel("Scrimmages",
+               gt_output("scrimmages")
+               ),
       #Add an additional panel for shooting (TBD on adding visuals here)
-      #tabPanel("Shooting")
+      #tabPanel("Shooting Drills")
     
     )
 )
@@ -438,6 +541,14 @@ server <- function(input, output, session) {
       df <- arrange(df, df$LANE_AGILITY_TIME_PTILE)
     }
     
+    if (input$sort_column == "Shuttle Run" && input$sort_direction == "desc") {
+      df <- arrange(df, desc(df$MODIFIED_LANE_AGILITY_TIME_PTILE))
+    }
+    
+    if (input$sort_column == "Shuttle Run" && input$sort_direction == "asc") {
+      df <- arrange(df, df$MODIFIED_LANE_AGILITY_TIME_PTILE)
+    }
+    
     if (input$sort_column == "3/4 Court Sprint" && input$sort_direction == "desc") {
       df <- arrange(df, desc(df$THREE_QUARTER_SPRINT_PTILE))
     }
@@ -534,12 +645,12 @@ server <- function(input, output, session) {
     selected_players <- filtered_players()[, c('SEASON', 'PLAYER_NAME','POSITION','PLUS_WS',
                                                'WEIGHT','HEIGHT','HEIGHT_WO_SHOES_PTILE','WEIGHT_PTILE',
                                                'WINGSPAN_PTILE', 'STANDING_REACH_PTILE','STANDING_VERTICAL_LEAP_PTILE', 
-                                               'MAX_VERTICAL_LEAP_PTILE', 'LANE_AGILITY_TIME_PTILE','THREE_QUARTER_SPRINT_PTILE',
-                                               'HAND_SIZE_PTILE','STANDARDIZED_POSITION', 'zero_count')]
+                                               'MAX_VERTICAL_LEAP_PTILE', 'LANE_AGILITY_TIME_PTILE','MODIFIED_LANE_AGILITY_TIME_PTILE','THREE_QUARTER_SPRINT_PTILE',
+                                               'HAND_SIZE_PTILE','STANDARDIZED_POSITION', 'nonzero_count')]
     
     names(selected_players) <- c('SEASON','PLAYER_NAME','POSITION','PLUS_WS', "WEIGHT_t", 'HEIGHT_t',
-                          'HEIGHT','WEIGHT','WINGSPAN','STAND.REACH','STAND.VERT',
-                          'MAX VERT','LANE AGILITY','SPRINT','HAND SIZE','STANDARDIZED_POSITION', 'zero_count')
+                          'HEIGHT','WEIGHT','WINGSPAN','ST.REACH','ST.VERT',
+                          'MAX VERT','LANE AGILITY','SHUT.RUN','SPRINT','HAND SIZE','STANDARDIZED_POSITION', 'nonzero_count')
     
     if (is.null(selected_players) || nrow(selected_players) == 0) {
       return(NULL)
@@ -568,14 +679,14 @@ server <- function(input, output, session) {
 
       # Continue to run the function using the index of the player's positional average (j) and measurements (i) across selected columns
       radar_data <- new_selected_players[c(j, i), c('PLAYER_NAME','HEIGHT','WEIGHT',
-                                                    'WINGSPAN','STAND.REACH','STAND.VERT',
-                                                    'MAX VERT','LANE AGILITY','SPRINT','HAND SIZE')]
+                                                    'WINGSPAN','ST.REACH','ST.VERT',
+                                                    'MAX VERT','LANE AGILITY','SHUT.RUN','SPRINT','HAND SIZE')]
       
       radar_data$Group <- factor(c("Player", "Position Average"), levels = c("Player", "Position Average"))
       
       ggradar(new_selected_players[c(j,i),c('PLAYER_NAME','HEIGHT','WEIGHT',
-                                            'WINGSPAN','STAND.REACH','STAND.VERT',
-                                            'MAX VERT','LANE AGILITY','SPRINT','HAND SIZE') ],
+                                            'WINGSPAN','ST.REACH','ST.VERT',
+                                            'MAX VERT','LANE AGILITY','SHUT.RUN','SPRINT','HAND SIZE') ],
               fill = TRUE,
               fill.alpha = 0.55,
               values.radar = c(0, 0.5, 1), 
@@ -590,7 +701,7 @@ server <- function(input, output, session) {
         ggtitle(paste(new_selected_players$PLAYER_NAME[i], "-", new_selected_players$POSITION[i],'\n',
                       new_selected_players$HEIGHT_t[i], new_selected_players$WEIGHT_t[i],"lbs", "|",
                       new_selected_players$PLUS_WS[i], "wingspan"),
-                subtitle = paste(new_selected_players$SEASON[i], "-", new_selected_players$zero_count[i],"of 9 attributes measured"))+
+                subtitle = paste(new_selected_players$SEASON[i], "-", new_selected_players$nonzero_count[i],"of 10 attributes measured"))+
         theme_minimal() +
         theme(plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
               plot.subtitle = element_text(size = 9, hjust = 0.5),
@@ -612,12 +723,12 @@ server <- function(input, output, session) {
     player_data <- filtered_players()[, c('SEASON', 'PLAYER_NAME','POSITION','PLUS_WS',
                                           'WEIGHT','HEIGHT','HEIGHT_WO_SHOES_PTILE','WEIGHT_PTILE',
                                           'WINGSPAN_PTILE', 'STANDING_REACH_PTILE','STANDING_VERTICAL_LEAP_PTILE', 
-                                          'MAX_VERTICAL_LEAP_PTILE', 'LANE_AGILITY_TIME_PTILE','THREE_QUARTER_SPRINT_PTILE',
-                                          'HAND_SIZE_PTILE','STANDARDIZED_POSITION', 'zero_count')]
+                                          'MAX_VERTICAL_LEAP_PTILE', 'LANE_AGILITY_TIME_PTILE','MODIFIED_LANE_AGILITY_TIME_PTILE','THREE_QUARTER_SPRINT_PTILE',
+                                          'HAND_SIZE_PTILE','STANDARDIZED_POSITION', 'nonzero_count')]
     
     names(player_data) <- c('SEASON','PLAYER_NAME','POSITION','PLUS_WS', "WEIGHT_t", 'HEIGHT_t',
-                                 'HEIGHT','WEIGHT','WINGSPAN','STAND.REACH','STAND.VERT',
-                                 'MAX VERT','LANE AGILITY','SPRINT','HAND SIZE','STANDARDIZED_POSITION', 'zero_count')
+                                 'HEIGHT','WEIGHT','WINGSPAN','ST.REACH','ST.VERT',
+                                 'MAX VERT','LANE AGILITY','SHUT.RUN','SPRINT','HAND SIZE','STANDARDIZED_POSITION', 'nonzero_count')
     
     if (is.null(player_data) || nrow(player_data) == 0) {
       return(NULL)
@@ -631,8 +742,8 @@ server <- function(input, output, session) {
     
     transformed_data <- player_data %>% 
       pivot_longer(
-        cols = c('HEIGHT','WEIGHT','WINGSPAN','STAND.REACH',
-                 'STAND.VERT','MAX VERT','LANE AGILITY','SPRINT', 'HAND SIZE'),
+        cols = c('HEIGHT','WEIGHT','WINGSPAN','ST.REACH',
+                 'ST.VERT','MAX VERT','LANE AGILITY','SHUT.RUN','SPRINT', 'HAND SIZE'),
         names_to = "MEASUREMENT",
         values_to = "PERCENTILE"
       ) %>%
@@ -642,14 +753,15 @@ server <- function(input, output, session) {
           MEASUREMENT == "WEIGHT" ~ "WEIGHT",
           MEASUREMENT == "WINGSPAN" ~ "WINGSPAN",
           MEASUREMENT == "HAND SIZE" ~ "HAND SIZE",
-          MEASUREMENT == "STAND.REACH" ~ "STANDING REACH",
+          MEASUREMENT == "ST.REACH" ~ "STANDING REACH",
           MEASUREMENT == "LANE AGILITY" ~ "LANE AGILITY",
-          MEASUREMENT == "STAND.VERT" ~ "STANDING VERT",
+          MEASUREMENT == "SHUT.RUN" ~ "SHUT.RUN",
+          MEASUREMENT == "ST.VERT" ~ "STANDING VERT",
           MEASUREMENT == "MAX VERT" ~ "MAX VERTICAL",
           MEASUREMENT == "SPRINT" ~ "3/4 COURT SPRINT",
         ),
           MEASUREMENT = factor(MEASUREMENT, 
-                             levels = c("HAND SIZE", "3/4 COURT SPRINT","LANE AGILITY","MAX VERTICAL",
+                             levels = c("HAND SIZE", "3/4 COURT SPRINT","SHUT.RUN","LANE AGILITY","MAX VERTICAL",
                                         "STANDING VERT", "STANDING REACH","WINGSPAN", "WEIGHT","HEIGHT"))
       )
     
@@ -679,7 +791,7 @@ server <- function(input, output, session) {
           ggtitle(paste(.x$PLAYER_NAME, "-", .x$POSITION, '\n',
                         .x$HEIGHT_t, .x$WEIGHT_t,"lbs", "|",
                         .x$PLUS_WS,"wingspan"),
-                  subtitle = paste(.x$SEASON,"-",.x$zero_count,"of 9 attributes measured")) +
+                  subtitle = paste(.x$SEASON,"-",.x$nonzero_count,"of 9 attributes measured")) +
           theme(
             axis.text.x = element_blank(),
             axis.text.y = element_text(size = 9, hjust=0),
@@ -708,7 +820,7 @@ server <- function(input, output, session) {
   
   dframe <- filtered_players() |> select('PLAYER_ID', 'PLAYER_NAME', 'SEASON', 'STANDARDIZED_POSITION', 'School', 'Country', 'HEIGHT_WO_SHOES_FT_IN',
                    'WEIGHT', 'WINGSPAN_FT_IN', 'STANDING_REACH_FT_IN', 'STANDING_VERTICAL_LEAP', 
-                   'MAX_VERTICAL_LEAP', 'LANE_AGILITY_TIME', 'THREE_QUARTER_SPRINT', 'HAND_LENGTH', 'HAND_WIDTH')
+                   'MAX_VERTICAL_LEAP', 'LANE_AGILITY_TIME', 'MODIFIED_LANE_AGILITY_TIME','THREE_QUARTER_SPRINT', 'HAND_LENGTH', 'HAND_WIDTH')
   
   if (is.null(dframe) || nrow(dframe) == 0) {
     return(NULL)
@@ -756,6 +868,7 @@ server <- function(input, output, session) {
                 STANDING_VERTICAL_LEAP = "STANDING VERTICAL (inches)",
                 MAX_VERTICAL_LEAP = "MAX VERTICAL (inches)",
                 LANE_AGILITY_TIME = "LANE AGILITY (seconds)",
+                MODIFIED_LANE_AGILITY_TIME = "SHUTTLE RUN (seconds)",
                 THREE_QUARTER_SPRINT = "3/4 COURT SPRINT (seconds)",
                 HAND_LENGTH = 'HAND LENGTH (inches)',
                 HAND_WIDTH = 'HAND WIDTH (inches)'
@@ -813,7 +926,7 @@ server <- function(input, output, session) {
        style = cell_text(align = 'center'),
        locations = cells_column_labels(columns = c('HEIGHT_WO_SHOES_FT_IN','WEIGHT', 'WINGSPAN_FT_IN', 
                                                    'STANDING_REACH_FT_IN', 'STANDING_VERTICAL_LEAP', 
-                                                   'MAX_VERTICAL_LEAP', 'LANE_AGILITY_TIME', 'THREE_QUARTER_SPRINT', 'HAND_LENGTH', 'HAND_WIDTH'))
+                                                   'MAX_VERTICAL_LEAP', 'LANE_AGILITY_TIME', 'MODIFIED_LANE_AGILITY_TIME','THREE_QUARTER_SPRINT', 'HAND_LENGTH', 'HAND_WIDTH'))
      ) |>
      
     #Align cell text to the center for the measurement columns
@@ -821,13 +934,13 @@ server <- function(input, output, session) {
        align = 'center',
        columns = c('HEIGHT_WO_SHOES_FT_IN','WEIGHT', 'WINGSPAN_FT_IN', 
                    'STANDING_REACH_FT_IN', 'STANDING_VERTICAL_LEAP', 
-                   'MAX_VERTICAL_LEAP', 'LANE_AGILITY_TIME', 'THREE_QUARTER_SPRINT', 'HAND_LENGTH', 'HAND_WIDTH')
+                   'MAX_VERTICAL_LEAP', 'LANE_AGILITY_TIME', 'MODIFIED_LANE_AGILITY_TIME','THREE_QUARTER_SPRINT', 'HAND_LENGTH', 'HAND_WIDTH')
      ) |>
     
     #Configure the column width for measurement columns
       cols_width(c('HEIGHT_WO_SHOES_FT_IN','WEIGHT', 'WINGSPAN_FT_IN',
                     'STANDING_REACH_FT_IN', 'STANDING_VERTICAL_LEAP', 
-                    'MAX_VERTICAL_LEAP', 'LANE_AGILITY_TIME', 'THREE_QUARTER_SPRINT', 'HAND_LENGTH', 'HAND_WIDTH') ~ px(85)) |>
+                    'MAX_VERTICAL_LEAP', 'LANE_AGILITY_TIME', 'MODIFIED_LANE_AGILITY_TIME','THREE_QUARTER_SPRINT', 'HAND_LENGTH', 'HAND_WIDTH') ~ px(85)) |>
     
     #Configure the column width for PLAYER_NAME
     cols_width(c('PLAYER_NAME') ~ px(200)) |>
@@ -863,6 +976,173 @@ server <- function(input, output, session) {
       
       )
 })
+  
+  output$scrimmages <- render_gt({
+    scrimmage_data %>% select(Player,
+                              Year,
+                              Game,
+                              Result,
+                              MARGIN,
+                              MIN,
+                              PTS,
+                              OR,
+                              DR,
+                              TOT,
+                              A,
+                              TO,
+                              ST,
+                              BS,
+                              PF,
+                              FG_display,
+                              TP_display,
+                              FT_display,
+                              X...,
+                              GmSc) %>% 
+      arrange(desc(GmSc)) %>%
+      gt() %>% 
+      
+      #Horizontally align table cell text to center 
+      tab_style(
+        style = cell_text(font='menlo', align = 'center', v_align = 'middle'),
+        locations = cells_body(columns = everything())
+      ) %>%
+      
+      #Vertically align column labels to center
+      tab_style(
+        style = cell_text(font='menlo', v_align = 'middle', color = 'white'),
+        locations = cells_column_labels(columns = everything())
+      ) %>%
+      
+      #Align the Player column cells to the left
+      tab_style(
+        style = cell_text(align = 'left'),
+        locations = cells_body(columns = Player)
+      ) %>%
+      
+      #Configure the column labels 
+      cols_label(Player = "",
+                 Year = "",
+                 Game = "",
+                 Result = "",
+                 MARGIN = "",
+                 PTS = "PTS",
+                 MIN = "MP",
+                 OR = "OR",
+                 DR = "DR",
+                 TOT = "TRB",
+                 A = "AST",
+                 TO = "TOV",
+                 ST = "STL",
+                 BS = "BLK",
+                 PF = "PF",
+                 FG_display = "FG",
+                 TP_display = "3PT",
+                 FT_display = "FT",
+                 X... = "+/-",
+                 GmSc = "GmSc"
+      ) %>% 
+      
+      #Merge name, year, game, and result into a single column (Player), and configure the formatting with HTML
+      cols_merge(
+        columns = c(Player, Year, Game, Result, MARGIN),
+        pattern = "{1}||{2}||{3}||{4}||{5}"
+      ) %>%
+      
+      text_transform(
+        locations = cells_body(columns = Player),
+        fn = function(x) {
+          split_vals <- strsplit(x, "\\|\\|", fixed = FALSE)
+          
+          lapply(split_vals, function(parts) {
+            player <- parts[1]
+            yr <- parts[2]
+            game <- parts[3]
+            result <- parts[4]
+            margin <- as.numeric(parts[5])  # Convert margin to numeric
+            
+            # Prefix '+' if positive, and color conditionally
+            margin_text <- if (margin > 0) {
+              paste0("+", margin)
+            } else {
+              as.character(margin)
+            }
+            
+            color <- if (margin > 0) "green" else "red"
+            
+            glue::glue(
+              "<div>
+          <span style='font-weight:bold; font-size:14.5px'>{player}</span>
+        </div>
+
+        <div style='line-height:16px'>
+          <span style='font-weight:normal;color:grey;font-size:11.5px'>
+            {yr} | Game {game}  
+            <span style='color:{color}'>({result} {margin_text})</span>
+          </span>
+        </div>"
+            )
+          })
+        }
+      ) %>%
+      
+      #Align column labels to the center for the measurement columns
+      tab_style(
+        style = cell_text(align = 'center'),
+        locations = cells_column_labels(columns = c('MIN','PTS', 'OR', 'DR', 'TOT', 'A', 'TO', 'ST',
+                                                    'BS', 'PF', 'FG_display', 'TP_display', 'FT_display', 'X...', 'GmSc'))
+      ) %>%
+      
+      #Align cell text to the center for the measurement columns
+      cols_align(
+        align = 'center',
+        columns = c('MIN','PTS', 'OR', 'DR', 'TOT', 'A', 'TO', 'ST',
+                    'BS', 'PF', 'FG_display', 'TP_display', 'FT_display', 'X...', 'GmSc')
+      ) %>%
+      
+      #Configure cell borders in the table
+      tab_style(
+        style = list(
+          cell_borders(
+            side = "top",
+            color = 'gray35',
+            weight = px(2),
+          )
+        ),
+        locations = cells_body(rows=everything())
+      ) %>%
+      
+      cols_width(everything() ~ px(57)) %>% 
+      
+      cols_width(c('Player') ~ px(200)) %>% 
+      
+      tab_header(
+        title = html("<div style='max-width:600px; margin: 0 auto; font-weight:bold;'>NBA Draft Combine Scrimmage History</div>"),
+        subtitle = html("<div style='max-width:600px; margin: 0 auto;'>Players sorted by Game Score (GS) by default</div>")
+      ) %>% 
+      
+      tab_options(
+        table.background.color = 'floralwhite',
+        
+        column_labels.font.size = 13.5,
+        table.font.size = 13.5,
+        table.margin.left = px(5),
+        table.margin.right = px(5),
+        table.width = 1200,
+        heading.title.font.size = 24,
+        heading.title.font.weight = 'bold',
+        heading.subtitle.font.size = 14,
+        table.font.color = 'black',
+        table.font.names = 'Menlo',
+        table.border.top.color = "transparent",
+        data_row.padding = px(7),
+        column_labels.background.color = '#666666',
+        column_labels.font.weight = '1000') %>% 
+      
+      gt_color_rows(c(GmSc), palette = custom_palette, direction = 1, domain = c(minimum, maximum)) %>%
+      
+      opt_interactive(use_search = TRUE)
+    
+  })
 }
 
 # 3.0 RUN THE APP ----
