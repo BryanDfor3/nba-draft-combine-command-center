@@ -860,13 +860,13 @@ server <- function(input, output, session) {
           MEASUREMENT == "HAND SIZE" ~ "HAND SIZE",
           MEASUREMENT == "ST.REACH" ~ "STANDING REACH",
           MEASUREMENT == "LANE AGILITY" ~ "LANE AGILITY",
-          MEASUREMENT == "SHUT.RUN" ~ "SHUT.RUN",
+          MEASUREMENT == "SHUT.RUN" ~ "SHUTTLE RUN",
           MEASUREMENT == "ST.VERT" ~ "STANDING VERT",
           MEASUREMENT == "MAX VERT" ~ "MAX VERTICAL",
           MEASUREMENT == "SPRINT" ~ "3/4 COURT SPRINT",
         ),
           MEASUREMENT = factor(MEASUREMENT, 
-                             levels = c("HAND SIZE", "3/4 COURT SPRINT","SHUT.RUN","LANE AGILITY","MAX VERTICAL",
+                             levels = c("HAND SIZE", "3/4 COURT SPRINT","SHUTTLE RUN","LANE AGILITY","MAX VERTICAL",
                                         "STANDING VERT", "STANDING REACH","WINGSPAN", "WEIGHT","HEIGHT"))
       )
     
