@@ -10,7 +10,7 @@ The app that I’ve published addresses these issues by consolidating the data a
 - **Percentile Values View** - Allows for viewing the percentile score for each of a player’s measurements relative to all participants measured since 2000
 - **Raw Measurements View** - Contains the raw values from NBA.com to view the actual measurement values (e.g. weight in lbs rather than percentile value)
 
-Furthermore, this tool was created with the intention of data exploration. There are options to filter by individual player, school, draft combine year, and position, as well as the ability to sort by an individual measurement, similar to what’s already available on NBA.com. Two new capabilities offered by the app over NBA.com is the ability to filter by a minimum height or minimum wingspan threshold. 
+Furthermore, this tool was created with the intention of data exploration. There are options to filter by individual player, school, draft combine year, and position, as well as the ability to sort by an individual measurement, similar to what’s already available on NBA.com. Two new capabilities offered by the app over NBA.com is the ability to filter by a minimum height or minimum wingspan threshold across the entirety of available historical draft combine data. 
 
 ## Structure
 
