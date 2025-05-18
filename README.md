@@ -17,7 +17,7 @@ Furthermore, this tool was created with the intention of data exploration. There
 - `scripts/01_nba_draft_data_pull.py`: Pulls historical combine data from the NBA API
 - `scripts/02_nba_draft_data_prep.py`: Cleans and analyzes data, calculates percentiles
 - `scripts/nba_draft_combine_shiny_app.R`: R Shiny dashboard for visualizing combine measurements
-- `data/`: Storage for datasets like `nba_draft_combine_data.csv`, `nba_draft_combine_ptiles.csv`
+- `data/`: Storage for datasets like `nba_draft_combine_data.csv`, `nba_draft_combine_ptiles.csv`, `combine_scrimmage_boxscores.csv`, and `2025-headshots-and-origin.csv`
 
 ## Running the Project
 
@@ -66,4 +66,7 @@ Open `nba_draft_combine_shiny_app.R` in R Studio and click "Run App"
 - Python scripts generate `nba_draft_combine_data_ptiles.csv`, used by the Shiny app
 - Set your working directory to the project root when running scripts
 - All API requests respect rate limits via pauses with time.sleep() in Python
-- Scrimmage Data Data Availability: I have been able to track down the box scores from all four scrimmages for each NBA Draft Combine back to 2021, as well as one scrimmage box score from 2018 and 2019. This data will grow incrementally and be consolidated into `combine_scrimmage_boxscores.csv` with the assistance of generative AI to minimize the manual workload - however, I am limited to only three files per day
+
+## Data Availability
+- **Measurements Data:** Data dates back to the 2000 NBA Draft Combine (individual player participation may vary)
+- **Scrimmage Data:** I have been able to track down the box scores from all four scrimmages for each NBA Draft Combine back to 2021, as well as one scrimmage box score from 2018 and 2019. This data will grow incrementally and be consolidated into `combine_scrimmage_boxscores.csv` with the assistance of generative AI to minimize the manual workload - however, I am limited to only three files per day
