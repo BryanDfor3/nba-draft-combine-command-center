@@ -11,6 +11,9 @@ def main():
     #Read in the data
     data = pd.read_csv('nba_draft_combine_data.csv')
 
+    #Update the position value on Danny Granger (otherwise it will be blank)
+    df.loc[df['PLAYER_NAME'] == "Danny Granger", 'POSITION'] = 'SF'
+
     #Drop all players whose heights weren't measured (e.g. non-participants)
     data.dropna(subset=['HEIGHT_WO_SHOES'], axis=0, inplace=True)
     data.dropna(subset=['WINGSPAN'], axis=0, inplace=True)
