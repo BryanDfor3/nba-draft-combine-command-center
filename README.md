@@ -66,3 +66,4 @@ Open `nba_draft_combine_shiny_app.R` in R Studio and click "Run App"
 - Python scripts generate `nba_draft_combine_data_ptiles.csv`, used by the Shiny app
 - Set your working directory to the project root when running scripts
 - All API requests respect rate limits via pauses with time.sleep() in Python
+- Scrimmage Data Data Availability: I have been able to track down the box scores from all four scrimmages for each NBA Draft Combine back to 2021, as well as one scrimmage box score from 2018 and 2019. This data will grow incrementally and be consolidated into `combine_scrimmage_boxscores.csv` with the assistance of generative AI to minimize the manual workload - however, I am limited to only three files per day
