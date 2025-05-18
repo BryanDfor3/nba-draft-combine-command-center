@@ -5,29 +5,31 @@ library(patchwork) #for chart layout
 library(shiny) #for app interface
 library(stringr) #for str_detect
 library(bslib) #for navset_card_pill()
-library(tidyr) #for data pivoting
+library(tidyr) #for 'separate' function and data pivoting
 library(purrr) #for map function
 library(shadowtext) #for shadowed text on lollipop chart mark labels
 library(gt) #for gt table
 library(gtExtras) #for gt table row coloring
 library(glue) #for table formatting
 
+############ RADAR & LOLLIPOP CHART PREP START ############ 
+
 # Read in the data and make initial transformations
-all_data <- read.csv('data/nba_draft_combine_ptiles.csv')
+all_data <- read.csv('Data/nba_draft_combine_ptiles.csv')
 all_data <- all_data %>%
   mutate(PLUS_WS = if_else(PLUS_WS >=0, paste0("+", PLUS_WS), as.character(PLUS_WS)))
 
 # Function to standardize dual positions (e.g., PG-SG and SG-PG become PG-SG)
-standardize_position <- function(position) {
-  sapply(position, function(pos) {
-    if (str_detect(pos, "-")) {
-      position_parts <- unlist(str_split(pos, "-"))
-      sorted_position <- paste(sort(position_parts), collapse = "-")
-      return(sorted_position)
-    }
-    return(pos)  # Return single positions as-is
-  })
-}
+  standardize_position <- function(position) {
+    sapply(position, function(pos) {
+      if (str_detect(pos, "-")) {
+        position_parts <- unlist(str_split(pos, "-"))
+        sorted_position <- paste(sort(position_parts), collapse = "-")
+        return(sorted_position)
+      }
+      return(pos)  # Return single positions as-is
+    })
+  }
 
 # Function to calculate means based on position type
 get_position_means <- function(data, position) {
@@ -88,7 +90,7 @@ all_data[,c('HEIGHT_WO_SHOES_PTILE', 'WEIGHT_PTILE', 'WINGSPAN_PTILE',
 position_means <- cbind(position_means, SEASON=0, PLAYER_NAME="", PLUS_WS="NA", WEIGHT_t="NA", HEIGHT_t="NA", STANDARDIZED_POSITION="NA", nonzero_count = 0)
 
 #Use the standardize_position function to standardize the position names in all_data
-all_data <- all_data |>
+all_data <- all_data  %>% 
   mutate(STANDARDIZED_POSITION = standardize_position(POSITION))
 
 all_data <- all_data %>%
@@ -104,10 +106,10 @@ position_means <- position_means %>%
                                         'SF-SG' = 'SG-SF'))
 
 #Join all_data with position_means on the standardized position
-all_data <- all_data |> left_join( position_means,
+all_data <- all_data  %>%  left_join( position_means,
                                    by=c('STANDARDIZED_POSITION'= 'POSITION'), suffix=c("",".x"), keep=FALSE)
 
-#Create a calculated field for Performance
+#Create a calculated field for Performance (excluding hand size & weight from calculation)
 all_data$PERFORMANCE <- (all_data$HEIGHT_WO_SHOES_PTILE +
                             all_data$WINGSPAN_PTILE +
                             all_data$STANDING_REACH_PTILE +
@@ -162,8 +164,10 @@ ft <- floor(initial_wingspan / 12)
 in_ <- initial_wingspan %% 12
 formatted_wingspan <- paste0(ft, "'", in_, '"')
 
+############ RAW MEASUREMENTS DATA TABLE PREP START ############ 
+
 #Read in reference data for 2025 headshot info
-headshot_data <- read.csv('data/2025-headshots-and-origin.csv')
+headshot_data <- read.csv('Data/2025-headshots-and-origin.csv')
 
 #Join reference data with all data on PLAYER_ID
 all_data <- left_join(all_data, headshot_data, by=c("PLAYER_ID" = "ID"))
@@ -199,13 +203,18 @@ all_data <- all_data %>% select(-NAME, -URL)
 measurements <- c("N/A", "Height", "Weight", "Wingspan", "Standing Reach", "Standing Vertical", "Max Vertical", "Lane Agility", "Shuttle Run", "3/4 Court Sprint", "Hand Size")
 
 
-############ SCRIMMAGE DATA CODE START ############ 
+############ SCRIMMAGE DATA TABLE PREP CODE START ############ 
 
-scrimmage_data <- read.csv('data/combine_scrimmage_boxscores.csv')
+#Read the scrimmage data in
+scrimmage_data <- read.csv('Data/combine_scrimmage_boxscores.csv')
+
+#Load custom color palette
 custom_palette <- as.character(paletteer::paletteer_d("Redmonder::dPBIPuGn"))[3:9]
 
+#Recalculate the game column to indicate game number relative to total number of scrimmages rather than relative to the day 
 scrimmage_data$Game <- (scrimmage_data$Day - 1) * 2 + scrimmage_data$Game
 
+#Calculate game score from the box score stats
 scrimmage_data$GmSc <- with(scrimmage_data,
                             round((as.numeric(PTS))
                                   + 0.4 * FG
@@ -219,51 +228,81 @@ scrimmage_data$GmSc <- with(scrimmage_data,
                                   - 0.4 * PF
                                   - TO, 1))
 
+#Calculate TS% from the box score stats
+scrimmage_data$TS_pct <- with(scrimmage_data,
+                                round((as.numeric(PTS) / (2 * (FGA + (0.44 * FTA)))),3))
+
+
+
+#Perform team level aggregations to prep for USG% calculation
+scrimmage_data$temp_min <- scrimmage_data$MIN
+scrimmage_data <- scrimmage_data %>%
+  separate(temp_min, into = c("mins", "secs"), sep = ":", convert = TRUE) %>%
+  mutate(
+    MP_min = round(mins + secs / 60, 1)
+  ) %>%
+  select(-mins, -secs)
+
+scrimmage_data <- scrimmage_data %>%
+  group_by(Year, Team, Game) %>%
+  mutate(
+    Team_FGA = sum(FGA, na.rm = TRUE),
+    Team_TO = sum(TO, na.rm = TRUE),
+    Team_MP  = sum(MP_min,  na.rm = TRUE),
+    Team_FTA = sum(FTA, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+#Calculate USG%
+scrimmage_data$USG_pct <- with(scrimmage_data, round(
+                                      ((FGA + 0.44 * FTA + TO) * (Team_MP / 5)) / 
+                                      
+                                      (MP_min * (Team_FGA + 0.44 * Team_FTA + Team_TO)),3))
+
+#Drop aggregation values from the dataframe
+scrimmage_data <- scrimmage_data %>% select(-MP_min, -Team_FGA, -Team_TO, -Team_MP, -Team_FTA)
+
+#Calculate min and max Game Score to use as the numeric range for color coding the cells
 maximum <- max(scrimmage_data$GmSc, na.rm=TRUE)
 minimum <- min(scrimmage_data$GmSc, na.rm=TRUE)
 
-sortable_display <- function(display_vec, pct_vec) {
-  mapply(function(display, pct) {
-    sort_key <- if (is.na(pct)) {
-      "-1.000"
+#Dictate how FG, 3P, and FT columns should behave on sort 
+sortable_display <- function(display_vec, makes_vec, attempts_vec) {
+  mapply(function(display, makes, attempts) {
+    if (is.na(makes) || is.na(attempts)) {
+      sort_key <- sprintf("%05d%05d", 0, 99999)
     } else {
-      # Penalize 0/X slightly more than 0/0
-      penalty <- if (grepl("^0/[1-9]", display)) {
-        -0.001 * as.numeric(sub("0/", "", display))
-      } else {
-        0
-      }
-      sprintf("%05.3f", pct + penalty)
+      sort_key <- sprintf("%05d%05d", 999 - makes, attempts)
     }
     
     gt::html(glue::glue("<span style='display:none'>{sort_key}</span>{display}"))
-  }, display_vec, pct_vec, SIMPLIFY = FALSE)
+  }, display_vec, makes_vec, attempts_vec, SIMPLIFY = FALSE)
 }
 
+#Create display columns for 3P, FT, FG columns
 scrimmage_data <- scrimmage_data %>%
   mutate(
     FG_display = paste0(FG, "/", FGA),
-    FG_pct = ifelse(FGA == 0, NA, FG / FGA),
-    
     TP_display = paste0(X3P, "/", X3PA),
-    TP_pct = ifelse(X3PA == 0, NA, X3P / X3PA),
-    
     FT_display = paste0(FT, "/", FTA),
-    FT_pct = ifelse(FTA == 0, NA, FT / FTA)
   )
 
+#Apply sorting logic to the FG, 3P, anad FT columns
 scrimmage_data <- scrimmage_data %>%
   mutate(
-    FG_display = sortable_display(FG_display, FG_pct),
-    TP_display = sortable_display(TP_display, TP_pct),
-    FT_display = sortable_display(FT_display, FT_pct)
+    FG_display = sortable_display(FG_display, FG, FGA),
+    TP_display = sortable_display(TP_display, X3P, X3PA),
+    FT_display = sortable_display(FT_display, FT, FTA)
   )
 
+#Create column indicating whether the player's team lost or won the scrimmage
 scrimmage_data$Result <- ifelse(scrimmage_data$MARGIN > 0, "W", "L")
 
+#Create display lists for the final two scrimmage data dropdown filters
+game_list <- setNames(1:4, paste("Game", 1:4))
+results_list <- c('Both','Winning Team', 'Losing Team')
 
-############ SCRIMMAGE DATA CODE END ############ 
-
+############ SHINY APP CODE START ############ 
 
 # 1.0 USER INTERFACE ----
 ui <- fluidPage(
@@ -287,7 +326,7 @@ ui <- fluidPage(
           )
         ),
       #Tab 1 page 1: Measurements
-      tabPanel("Measurements",
+      tabPanel("Player Measurements",
          sidebarLayout(
            sidebarPanel(
              #Add text to sidebar panel
@@ -418,15 +457,49 @@ ui <- fluidPage(
       ),
     
       #Add an additional panel for scrimmages
-      tabPanel("Scrimmages",
+      tabPanel("Scrimmage History",
+        sidebarLayout(
+          sidebarPanel(
+            HTML(
+              paste0(
+                "<h3>NBA Draft Combine Scrimmage History</h3>",
+                "<strong> NOTES </strong>",
+                "<ul>",
+                #"<li> Scrimmage participants are a smaller subset of the full NBA Draft Combine participants list </li>",
+                "<li> Scrimmage box score stats dating back to 2021 to be added incrementally. See GitHub repo for data availability info </li>",
+                "<li> Players are sorted by Game Score (GmSc) by default </li>",
+                "</ul>"
+              )
+            ),
+            selectInput("scrim_player", 'Filter by Name(s)', choices = sort(unique(scrimmage_data$Player), decreasing = FALSE), multiple=TRUE),
+            selectInput("scrim_year", 'Filter by Draft Combine Year(s)', choices = sort(scrimmage_data$Year, decreasing = TRUE), multiple=TRUE, selected = max(scrimmage_data$Year)),
+            selectInput("scrim_game", "Filter by Game Number(s) 1-4", choices = game_list, multiple= TRUE, selected = game_list),
+            selectInput("scrim_result", "Filter by Winning / Losing Team(s)", choices = results_list, selected = results_list[0]),
+            HTML(paste0(
+              #"<br>",
+              "<strong> External Links</strong>",
+              "<br>",
+              "<a href='https://github.com/BryanDfor3/nba-draft-combine-command-center' target='_blank' style='text-decoration: none; font-size: 14px;'>",
+              "<i class='fab fa-github'></i> GitHub Repository</a>",
+              "<br>",
+              "<a href='https://www.nba.com/stats/draft/combine-anthro' target='_blank' style='text-decoration: none; font-size: 14px;'>",
+              "<i class='fas fa-basketball-ball'></i> NBA.com Draft Combine Data</a>",
+              "<br>",
+              "<a href='https://www.checkmyathletics.com/basketball-combine' target='_blank' style='text-decoration: none; font-size: 14px;'>",
+              "<i class='fas fa-basketball-ball'></i> Athletic Test Explanations & Video Examples</a>",
+              "<br>"))),
+          
+          mainPanel(
                gt_output("scrimmages")
+          )
+        )
+      )
                ),
       #Add an additional panel for shooting (TBD on adding visuals here)
       #tabPanel("Shooting Drills")
     
     )
-)
-  
+
 
 # 2.0 SERVER ----
 server <- function(input, output, session) {
@@ -573,6 +646,38 @@ server <- function(input, output, session) {
     return(df)
   })
   
+  filtered_scrimmage_data <- reactive({
+    s_df <- scrimmage_data
+    
+    if (!is.null(input$scrim_year) && length(input$scrim_year) > 0) {
+      s_df <- s_df[s_df$Year %in% input$scrim_year, ]
+    }
+    
+    if (!is.null(input$scrim_player) && length(input$scrim_player) > 0) {
+      s_df <- s_df[s_df$Player %in% input$scrim_player, ]
+    }
+
+    if (!is.null(input$scrim_game) && length(input$scrim_game) > 0) {
+      s_df <- s_df[s_df$Game %in% input$scrim_game, ]
+    }
+    
+    if (input$scrim_result == "Winning Team") {
+      s_df <- s_df[s_df$Result == 'W', ]
+    }
+    
+    if (input$scrim_result == "Losing Team") {
+      s_df <- s_df[s_df$Result == 'L', ]
+    }
+    
+    #Account for null results
+    
+    if (nrow(s_df) == 0) {
+      return(NULL)
+    }
+    return(s_df)
+    
+  })
+  
   #Limit each plot to 9 per page and configure reactive behavior of the app (e.g. page navigation, page numbers, selecting/deselecting filters) 
   plots_per_page <- 9
   total_pages <- reactive({
@@ -703,7 +808,7 @@ server <- function(input, output, session) {
                       new_selected_players$PLUS_WS[i], "wingspan"),
                 subtitle = paste(new_selected_players$SEASON[i], "-", new_selected_players$nonzero_count[i],"of 10 attributes measured"))+
         theme_minimal() +
-        theme(plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        theme(plot.title = element_text(size = 14, family="menlo", face = "bold", hjust = 0.5),
               plot.subtitle = element_text(size = 9, hjust = 0.5),
               axis.text = element_blank(),
               panel.grid = element_blank(),
@@ -791,7 +896,7 @@ server <- function(input, output, session) {
           ggtitle(paste(.x$PLAYER_NAME, "-", .x$POSITION, '\n',
                         .x$HEIGHT_t, .x$WEIGHT_t,"lbs", "|",
                         .x$PLUS_WS,"wingspan"),
-                  subtitle = paste(.x$SEASON,"-",.x$nonzero_count,"of 9 attributes measured")) +
+                  subtitle = paste(.x$SEASON,"-",.x$nonzero_count,"of 10 attributes measured")) +
           theme(
             axis.text.x = element_blank(),
             axis.text.y = element_text(size = 9, hjust=0),
@@ -802,7 +907,7 @@ server <- function(input, output, session) {
             panel.grid = element_blank(),
             plot.background = element_rect(fill = "floralwhite", color = "floralwhite"),
             plot.margin = margin(10, 50, 10, 15),
-            plot.title = element_text(size = 14, face = "bold", hjust=0.5),
+            plot.title = element_text(size = 14, face = "bold", family="menlo", hjust=0.5),
             plot.subtitle = element_text(size = 9, hjust = 0.5),
             panel.background = element_rect(fill = "floralwhite", color = "floralwhite"),
             text = element_text(family="menlo"),
@@ -818,7 +923,7 @@ server <- function(input, output, session) {
   # Create gt Table
   output$table <- render_gt({
   
-  dframe <- filtered_players() |> select('PLAYER_ID', 'PLAYER_NAME', 'SEASON', 'STANDARDIZED_POSITION', 'School', 'Country', 'HEIGHT_WO_SHOES_FT_IN',
+  dframe <- filtered_players()  %>%  select('PLAYER_ID', 'PLAYER_NAME', 'SEASON', 'STANDARDIZED_POSITION', 'School', 'Country', 'HEIGHT_WO_SHOES_FT_IN',
                    'WEIGHT', 'WINGSPAN_FT_IN', 'STANDING_REACH_FT_IN', 'STANDING_VERTICAL_LEAP', 
                    'MAX_VERTICAL_LEAP', 'LANE_AGILITY_TIME', 'MODIFIED_LANE_AGILITY_TIME','THREE_QUARTER_SPRINT', 'HAND_LENGTH', 'HAND_WIDTH')
   
@@ -832,27 +937,27 @@ server <- function(input, output, session) {
   standardized_pos <- dframe$STANDARDIZED_POSITION
   
   
-  dframe |>
+  dframe  %>% 
     
-  gt() |>
+  gt()  %>% 
      
     #Horizontally align table cell text to center 
     tab_style(
        style = cell_text(font='menlo', align = 'center'),
        locations = cells_body(columns = everything())
-     ) |>
+     )  %>% 
     
     #Vertically align column labels to center
     tab_style(
       style = cell_text(font='menlo', v_align = 'middle'),
       locations = cells_column_labels(columns = everything())
-    ) |>
+    )  %>% 
     
     #Align the PLAYER_NAME column cells to the left
      tab_style(
        style = cell_text(align = 'left'),
        locations = cells_body(columns = PLAYER_NAME)
-     ) |>
+     )  %>% 
      
     #Configure the column labels 
     cols_label(PLAYER_ID = "",
@@ -872,7 +977,7 @@ server <- function(input, output, session) {
                 THREE_QUARTER_SPRINT = "3/4 COURT SPRINT (seconds)",
                 HAND_LENGTH = 'HAND LENGTH (inches)',
                 HAND_WIDTH = 'HAND WIDTH (inches)'
-       ) |>
+       )  %>% 
      
     #Convert the player_id url to player headshots 
     text_transform(
@@ -881,13 +986,13 @@ server <- function(input, output, session) {
          web_image(url = x,
                    height = px(50))
        }
-     ) |>
+     )  %>% 
     
     #Merge name, school, country, season, and position into a single column (PLAYER_NAME), and configure the formatting with HTML
      cols_merge(
        columns = c(PLAYER_NAME, School, Country, SEASON, STANDARDIZED_POSITION),
        pattern = "{1}||{2}||{3}||{4}||{5}"
-     ) |>
+     )  %>% 
     
      text_transform(
        locations = cells_body(columns = PLAYER_NAME),
@@ -919,7 +1024,7 @@ server <- function(input, output, session) {
         })
        }
           
-    ) |>
+    )  %>% 
      
     #Align column labels to the center for the measurement columns
      tab_style(
@@ -927,7 +1032,7 @@ server <- function(input, output, session) {
        locations = cells_column_labels(columns = c('HEIGHT_WO_SHOES_FT_IN','WEIGHT', 'WINGSPAN_FT_IN', 
                                                    'STANDING_REACH_FT_IN', 'STANDING_VERTICAL_LEAP', 
                                                    'MAX_VERTICAL_LEAP', 'LANE_AGILITY_TIME', 'MODIFIED_LANE_AGILITY_TIME','THREE_QUARTER_SPRINT', 'HAND_LENGTH', 'HAND_WIDTH'))
-     ) |>
+     )  %>% 
      
     #Align cell text to the center for the measurement columns
      cols_align(
@@ -935,15 +1040,15 @@ server <- function(input, output, session) {
        columns = c('HEIGHT_WO_SHOES_FT_IN','WEIGHT', 'WINGSPAN_FT_IN', 
                    'STANDING_REACH_FT_IN', 'STANDING_VERTICAL_LEAP', 
                    'MAX_VERTICAL_LEAP', 'LANE_AGILITY_TIME', 'MODIFIED_LANE_AGILITY_TIME','THREE_QUARTER_SPRINT', 'HAND_LENGTH', 'HAND_WIDTH')
-     ) |>
+     )  %>% 
     
     #Configure the column width for measurement columns
       cols_width(c('HEIGHT_WO_SHOES_FT_IN','WEIGHT', 'WINGSPAN_FT_IN',
                     'STANDING_REACH_FT_IN', 'STANDING_VERTICAL_LEAP', 
-                    'MAX_VERTICAL_LEAP', 'LANE_AGILITY_TIME', 'MODIFIED_LANE_AGILITY_TIME','THREE_QUARTER_SPRINT', 'HAND_LENGTH', 'HAND_WIDTH') ~ px(85)) |>
+                    'MAX_VERTICAL_LEAP', 'LANE_AGILITY_TIME', 'MODIFIED_LANE_AGILITY_TIME','THREE_QUARTER_SPRINT', 'HAND_LENGTH', 'HAND_WIDTH') ~ px(85))  %>% 
     
     #Configure the column width for PLAYER_NAME
-    cols_width(c('PLAYER_NAME') ~ px(200)) |>
+    cols_width(c('PLAYER_NAME') ~ px(200))  %>% 
      
     #Configure cell borders in the table
      tab_style(
@@ -955,7 +1060,7 @@ server <- function(input, output, session) {
          )
        ),
        locations = cells_body(rows=everything())
-     ) |>
+     )  %>% 
      
     #Configure table formatting options
        tab_options(
@@ -977,13 +1082,16 @@ server <- function(input, output, session) {
       )
 })
   
+  #Generate scrimmages data table
   output$scrimmages <- render_gt({
-    scrimmage_data %>% select(Player,
+    filtered_scrimmage_data() %>% select(Player,
                               Year,
                               Game,
                               Result,
                               MARGIN,
                               MIN,
+                              USG_pct,
+                              TS_pct,
                               PTS,
                               OR,
                               DR,
@@ -1027,6 +1135,8 @@ server <- function(input, output, session) {
                  MARGIN = "",
                  PTS = "PTS",
                  MIN = "MP",
+                 USG_pct = "USG%",
+                 TS_pct = "TS%",
                  OR = "OR",
                  DR = "DR",
                  TOT = "TRB",
@@ -1040,6 +1150,11 @@ server <- function(input, output, session) {
                  FT_display = "FT",
                  X... = "+/-",
                  GmSc = "GmSc"
+      ) %>% 
+      
+      fmt_percent(
+        columns = c(TS_pct,USG_pct),
+        decimals = 1
       ) %>% 
       
       #Merge name, year, game, and result into a single column (Player), and configure the formatting with HTML
@@ -1088,14 +1203,14 @@ server <- function(input, output, session) {
       #Align column labels to the center for the measurement columns
       tab_style(
         style = cell_text(align = 'center'),
-        locations = cells_column_labels(columns = c('MIN','PTS', 'OR', 'DR', 'TOT', 'A', 'TO', 'ST',
+        locations = cells_column_labels(columns = c('MIN','USG_pct','TS_pct','PTS', 'OR', 'DR', 'TOT', 'A', 'TO', 'ST',
                                                     'BS', 'PF', 'FG_display', 'TP_display', 'FT_display', 'X...', 'GmSc'))
       ) %>%
       
       #Align cell text to the center for the measurement columns
       cols_align(
         align = 'center',
-        columns = c('MIN','PTS', 'OR', 'DR', 'TOT', 'A', 'TO', 'ST',
+        columns = c('MIN','USG_pct','TS_pct','PTS', 'OR', 'DR', 'TOT', 'A', 'TO', 'ST',
                     'BS', 'PF', 'FG_display', 'TP_display', 'FT_display', 'X...', 'GmSc')
       ) %>%
       
@@ -1111,14 +1226,14 @@ server <- function(input, output, session) {
         locations = cells_body(rows=everything())
       ) %>%
       
-      cols_width(everything() ~ px(57)) %>% 
+      cols_width(everything() ~ px(65)) %>% 
       
       cols_width(c('Player') ~ px(200)) %>% 
       
-      tab_header(
-        title = html("<div style='max-width:600px; margin: 0 auto; font-weight:bold;'>NBA Draft Combine Scrimmage History</div>"),
-        subtitle = html("<div style='max-width:600px; margin: 0 auto;'>Players sorted by Game Score (GS) by default</div>")
-      ) %>% 
+      # tab_header(
+      #   title = html("<div style='max-width:600px; margin: 0 auto; font-weight:bold;'>NBA Draft Combine Scrimmage History</div>"),
+      #   subtitle = html("<div style='max-width:600px; margin: 0 auto;'>Players sorted by Game Score (GS) by default</div>")
+      # ) %>% 
       
       tab_options(
         table.background.color = 'floralwhite',
@@ -1127,7 +1242,7 @@ server <- function(input, output, session) {
         table.font.size = 13.5,
         table.margin.left = px(5),
         table.margin.right = px(5),
-        table.width = 1200,
+        table.width = 1350,
         heading.title.font.size = 24,
         heading.title.font.weight = 'bold',
         heading.subtitle.font.size = 14,
@@ -1140,11 +1255,10 @@ server <- function(input, output, session) {
       
       gt_color_rows(c(GmSc), palette = custom_palette, direction = 1, domain = c(minimum, maximum)) %>%
       
-      opt_interactive(use_search = TRUE)
+      opt_interactive(use_highlight = TRUE)
     
   })
 }
 
 # 3.0 RUN THE APP ----
 shinyApp(ui = ui, server = server)
-
