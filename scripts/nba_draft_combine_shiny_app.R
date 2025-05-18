@@ -13,7 +13,7 @@ library(gtExtras) #for gt table row coloring
 library(glue) #for table formatting
 
 # Read in the data and make initial transformations
-all_data <- read.csv('nba_draft_combine_ptiles.csv')
+all_data <- read.csv('data/nba_draft_combine_ptiles.csv')
 all_data <- all_data %>%
   mutate(PLUS_WS = if_else(PLUS_WS >=0, paste0("+", PLUS_WS), as.character(PLUS_WS)))
 
@@ -163,7 +163,7 @@ in_ <- initial_wingspan %% 12
 formatted_wingspan <- paste0(ft, "'", in_, '"')
 
 #Read in reference data for 2025 headshot info
-headshot_data <- read.csv('2025-headshots-and-origin.csv')
+headshot_data <- read.csv('data/2025-headshots-and-origin.csv')
 
 #Join reference data with all data on PLAYER_ID
 all_data <- left_join(all_data, headshot_data, by=c("PLAYER_ID" = "ID"))
@@ -201,7 +201,7 @@ measurements <- c("N/A", "Height", "Weight", "Wingspan", "Standing Reach", "Stan
 
 ############ SCRIMMAGE DATA CODE START ############ 
 
-scrimmage_data <- read.csv('combine_scrimmage_boxscores.csv')
+scrimmage_data <- read.csv('data/combine_scrimmage_boxscores.csv')
 custom_palette <- as.character(paletteer::paletteer_d("Redmonder::dPBIPuGn"))[3:9]
 
 scrimmage_data$Game <- (scrimmage_data$Day - 1) * 2 + scrimmage_data$Game
