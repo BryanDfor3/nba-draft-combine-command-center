@@ -1,4 +1,4 @@
-# NBA Draft Combine Command Center
+# NBA Draft Combine Command Center (2025)
 
 <img src="https://github.com/BryanDfor3/nba-draft-combine-command-center/blob/main/nba-draft-combine-command-center.gif" align="left"/> <br>  
 
@@ -12,7 +12,7 @@ The app that I’ve published addresses these issues by consolidating the data a
 - **Percentile Values View** - Allows for viewing the percentile score for each of a player’s measurements relative to all participants measured since 2000
 - **Raw Measurements View** - Contains the raw values from NBA.com to view the actual measurement values (e.g. weight in lbs rather than percentile value)
 
-Furthermore, this tool was created with the intention of data exploration. There are options to filter by individual player, school, draft combine year, and position, as well as the ability to sort by an individual measurement, similar to what’s already available on NBA.com. Two new capabilities offered by the app over NBA.com is the ability to filter by a minimum height or minimum wingspan threshold across the entirety of available historical draft combine data. 
+This tool was created primarily for data exploration, as there are options to filter by and/or select from the full universe of individual players, schools, draft combine year, and player positions from the combine's participants. The app also maintains the ability to sort by an individual measurement as is currently available on NBA.com. 
 
 ## Structure
 
@@ -62,6 +62,7 @@ Open `nba_draft_combine_shiny_app.R` in R Studio and click "Run App"
 - purrr
 - shadowtext
 - gt
+- gtExtras
 - glue
 
 ## Notes
