@@ -1255,7 +1255,7 @@ server <- function(input, output, session) {
       
       gt_color_rows(c(GmSc), palette = custom_palette, direction = 1, domain = c(minimum, maximum)) %>%
       
-      opt_interactive(use_highlight = TRUE)
+      opt_interactive(use_highlight = TRUE, use_page_size_select = TRUE, page_size_default = 10, page_size_values = c(10, 15, 25, 50))
     
   })
 }
