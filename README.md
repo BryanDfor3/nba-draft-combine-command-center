@@ -4,7 +4,7 @@
 
 ## Background
 
-The NBA Draft Combine is where prospective NBA players are invited to participate in drills, scrimmages, and undergo a thorough anthropomorphic measurements process with an audience of NBA team personnel present to evaluate skills and physical attributes. This data is tracked and listed here on NBA.com, but lacks a seamless way for historical comparison. As an outsider, it can be hard to gauge what “good” is for a particular attribute. 
+The NBA Draft Combine is where prospective NBA players are invited to participate in drills, scrimmages, and undergo a thorough anthropomorphic measurements process with an audience of NBA team personnel present to evaluate skills and physical attributes. This data is tracked and listed [here](/https://www.nba.com/stats/draft/combine-anthro) on NBA.com, but lacks a seamless way for historical comparison. As an outsider, it can be hard to gauge what “good” is for a particular drill or measurement. For example, understanding the significance of [Grant Nelson's 2.53 second Shuttle Run](/https://www.instagram.com/reel/DJmxdfzys6C/) in 2025. 
 
 The app that I’ve published addresses these issues by consolidating the data and presenting in multiple views in a clean UI:
 
