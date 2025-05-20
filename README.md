@@ -29,7 +29,7 @@ This tool was created primarily for data exploration, as there are options to fi
 - Pulls NBA Draft Combine data using the NBA stats API <br />
 - Prompts for whether to append or overwrite data
 
-#### `scripts/02_data_pull.py`
+#### `scripts/02_nba_draft_data_prep.py`
 - Takes the output from from `01_nba_draft_data_pull.py` and calculates percentile values for each combine measurement <br />
 - Pulls player info (school, country) from the NBA API
 
