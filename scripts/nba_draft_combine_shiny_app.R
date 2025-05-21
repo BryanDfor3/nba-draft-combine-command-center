@@ -166,17 +166,25 @@ formatted_wingspan <- paste0(ft, "'", in_, '"')
 
 ############ RAW MEASUREMENTS DATA TABLE PREP START ############ 
 
-#Read in reference data for 2025 headshot info
+#Read in reference data for headshot & info
 headshot_data <- read.csv('Data/2025-headshots-and-origin.csv')
 
 #Join reference data with all data on PLAYER_ID
 all_data <- left_join(all_data, headshot_data, by=c("PLAYER_ID" = "ID"))
 
+#Replace NAs (e.g. players not in the latest year's combine) for pre-draft consensus ranking
+all_data <- all_data %>%
+  mutate_at(c('BIG_BOARD_RANK_t'), ~replace_na(.,""))
+
+#Account for players who've participated in multiple combines - replace their consensus ranking value if data is not the current year
+all_data <- all_data %>% 
+  mutate(BIG_BOARD_RANK_t = ifelse(SEASON != max(SEASON),"",BIG_BOARD_RANK_t))
+
 #Add School information and Country information for all 2025 draft combine players
 all_data <- all_data %>%                       
   mutate(
-    School  = ifelse(SEASON == 2025, SCHOOL,  School),
-    Country = ifelse(SEASON == 2025, COUNTRY, Country)
+    School  = ifelse(SEASON == max(SEASON), SCHOOL,  School),
+    Country = ifelse(SEASON == max(SEASON), COUNTRY, Country)
   )
 
 #Drop extra columns from all data
@@ -187,7 +195,7 @@ all_data <- all_data %>% select(-SCHOOL, -COUNTRY)
 all_data <- all_data %>%
   mutate(
     PLAYER_ID = ifelse(
-      SEASON == 2025 & URL != "",
+      SEASON == max(SEASON) & URL != "",
       URL,
       paste0(
         "https://cdn.nba.com/headshots/nba/latest/1040x760/",
@@ -200,8 +208,9 @@ all_data <- all_data %>%
 all_data <- all_data %>% select(-NAME, -URL)
 
 #Create list of dropdown options for sorting
-measurements <- c("N/A", "Height", "Weight", "Wingspan", "Standing Reach", "Standing Vertical", "Max Vertical", "Lane Agility", "Shuttle Run", "3/4 Court Sprint", "Hand Size")
+measurements <- c(paste(max(all_data$SEASON),"Consensus Rank (rookiescale.com)"),"Combine Performance (Estimated)", "Height", "Weight", "Wingspan", "Standing Reach", "Standing Vertical", "Max Vertical", "Lane Agility", "Shuttle Run", "3/4 Court Sprint", "Hand Size")
 
+position_means <- position_means %>% cbind(BIG_BOARD_RANK_t = "NA")
 
 ############ SCRIMMAGE DATA TABLE PREP CODE START ############ 
 
@@ -362,11 +371,12 @@ ui <- fluidPage(
                multiple=TRUE
              ),
              
-             selectInput("sort_column", "Sort By Measurement", choices = measurements),
+             selectInput("sort_column", "Sort By Attribute", choices = measurements),
              
              radioButtons("sort_direction", "Sort Direction",
-                          c("Descending" = "desc",
-                            "Ascending" = "asc"),
+                          c("Ascending" = "asc",
+                            "Descending" = "desc"
+                            ),
                           inline = TRUE),
              
              sliderInput(
@@ -433,7 +443,9 @@ ui <- fluidPage(
                "<br>",
                "<a href='https://www.checkmyathletics.com/basketball-combine' target='_blank' style='text-decoration: none; font-size: 14px;'>",
                "<i class='fas fa-basketball-ball'></i> Athletic Test Explanations & Video Examples</a>",
-               "<br>"
+               "<br>",
+               "<a href='https://www.rookiescale.com/2025-consensus-board/' target='_blank' style='text-decoration: none; font-size: 14px;'>",
+               "<i class='fas fa-basketball-ball'></i> Full rookiescale.com NBA Draft Consensus Big Board</a>"
                )),
                   
              width = 4
@@ -487,7 +499,9 @@ ui <- fluidPage(
               "<br>",
               "<a href='https://www.checkmyathletics.com/basketball-combine' target='_blank' style='text-decoration: none; font-size: 14px;'>",
               "<i class='fas fa-basketball-ball'></i> Athletic Test Explanations & Video Examples</a>",
-              "<br>"))),
+              "<br>")),
+            width = 4
+          ),
           
           mainPanel(
                gt_output("scrimmages")
@@ -557,6 +571,22 @@ server <- function(input, output, session) {
     }
     
   #Update the visuals if any of the sorting options are selected
+   
+     if (input$sort_column == paste(max(all_data$SEASON),"Consensus Rank (rookiescale.com)") && input$sort_direction == "desc") {
+      df <- arrange(df, desc(df$BIG_BOARD_RANK))
+    }
+    
+    if (input$sort_column == paste(max(all_data$SEASON),"Consensus Rank (rookiescale.com)") && input$sort_direction == "asc") {
+      df <- arrange(df, df$BIG_BOARD_RANK)
+    }
+    
+    if (input$sort_column == "Combine Performance (Estimated)" && input$sort_direction == "desc") {
+      df <- arrange(df, desc(df$PERFORMANCE))
+    }
+    
+    if (input$sort_column == "Combine Performance (Estimated)" && input$sort_direction == "asc") {
+      df <- arrange(df, df$PERFORMANCE)
+    }
     
     if (input$sort_column == "Height" && input$sort_direction == "desc") {
       df <- arrange(df, desc(df$HEIGHT_WO_SHOES_PTILE))
@@ -751,11 +781,11 @@ server <- function(input, output, session) {
                                                'WEIGHT','HEIGHT','HEIGHT_WO_SHOES_PTILE','WEIGHT_PTILE',
                                                'WINGSPAN_PTILE', 'STANDING_REACH_PTILE','STANDING_VERTICAL_LEAP_PTILE', 
                                                'MAX_VERTICAL_LEAP_PTILE', 'LANE_AGILITY_TIME_PTILE','MODIFIED_LANE_AGILITY_TIME_PTILE','THREE_QUARTER_SPRINT_PTILE',
-                                               'HAND_SIZE_PTILE','STANDARDIZED_POSITION', 'nonzero_count')]
+                                               'HAND_SIZE_PTILE','STANDARDIZED_POSITION', 'nonzero_count', 'BIG_BOARD_RANK_t')]
     
     names(selected_players) <- c('SEASON','PLAYER_NAME','POSITION','PLUS_WS', "WEIGHT_t", 'HEIGHT_t',
                           'HEIGHT','WEIGHT','WINGSPAN','ST.REACH','ST.VERT',
-                          'MAX VERT','LANE AGILITY','SHUT.RUN','SPRINT','HAND SIZE','STANDARDIZED_POSITION', 'nonzero_count')
+                          'MAX VERT','LANE AGILITY','SHUT.RUN','SPRINT','HAND SIZE','STANDARDIZED_POSITION', 'nonzero_count', 'BIG_BOARD_RANK_t')
     
     if (is.null(selected_players) || nrow(selected_players) == 0) {
       return(NULL)
@@ -766,7 +796,7 @@ server <- function(input, output, session) {
     end_idx <- min(start_idx + plots_per_page -1, nrow(selected_players))
     selected_players <- selected_players[start_idx:end_idx, , drop=FALSE]
     standardized_pos <- selected_players$STANDARDIZED_POSITION
-    
+
     #Perform an rbind with the position means to include both datasets
     new_selected_players <- rbind(position_means,selected_players)
     new_selected_players$PLAYER_NAME <- factor(new_selected_players$PLAYER_NAME)
@@ -806,7 +836,7 @@ server <- function(input, output, session) {
         ggtitle(paste(new_selected_players$PLAYER_NAME[i], "-", new_selected_players$POSITION[i],'\n',
                       new_selected_players$HEIGHT_t[i], new_selected_players$WEIGHT_t[i],"lbs", "|",
                       new_selected_players$PLUS_WS[i], "wingspan"),
-                subtitle = paste(new_selected_players$SEASON[i], "-", new_selected_players$nonzero_count[i],"of 10 attributes measured"))+
+                subtitle = paste(new_selected_players$BIG_BOARD_RANK_t[i],new_selected_players$SEASON[i], "-", new_selected_players$nonzero_count[i],"of 10 attributes measured"))+
         theme_minimal() +
         theme(plot.title = element_text(size = 14, family="menlo", face = "bold", hjust = 0.5),
               plot.subtitle = element_text(size = 9, hjust = 0.5),
@@ -829,11 +859,11 @@ server <- function(input, output, session) {
                                           'WEIGHT','HEIGHT','HEIGHT_WO_SHOES_PTILE','WEIGHT_PTILE',
                                           'WINGSPAN_PTILE', 'STANDING_REACH_PTILE','STANDING_VERTICAL_LEAP_PTILE', 
                                           'MAX_VERTICAL_LEAP_PTILE', 'LANE_AGILITY_TIME_PTILE','MODIFIED_LANE_AGILITY_TIME_PTILE','THREE_QUARTER_SPRINT_PTILE',
-                                          'HAND_SIZE_PTILE','STANDARDIZED_POSITION', 'nonzero_count')]
+                                          'HAND_SIZE_PTILE','STANDARDIZED_POSITION', 'nonzero_count', 'BIG_BOARD_RANK_t')]
     
     names(player_data) <- c('SEASON','PLAYER_NAME','POSITION','PLUS_WS', "WEIGHT_t", 'HEIGHT_t',
                                  'HEIGHT','WEIGHT','WINGSPAN','ST.REACH','ST.VERT',
-                                 'MAX VERT','LANE AGILITY','SHUT.RUN','SPRINT','HAND SIZE','STANDARDIZED_POSITION', 'nonzero_count')
+                                 'MAX VERT','LANE AGILITY','SHUT.RUN','SPRINT','HAND SIZE','STANDARDIZED_POSITION', 'nonzero_count','BIG_BOARD_RANK_t')
     
     if (is.null(player_data) || nrow(player_data) == 0) {
       return(NULL)
@@ -896,7 +926,7 @@ server <- function(input, output, session) {
           ggtitle(paste(.x$PLAYER_NAME, "-", .x$POSITION, '\n',
                         .x$HEIGHT_t, .x$WEIGHT_t,"lbs", "|",
                         .x$PLUS_WS,"wingspan"),
-                  subtitle = paste(.x$SEASON,"-",.x$nonzero_count,"of 10 attributes measured")) +
+                  subtitle = paste(.x$BIG_BOARD_RANK_t,.x$SEASON,"-",.x$nonzero_count,"of 10 attributes measured")) +
           theme(
             axis.text.x = element_blank(),
             axis.text.y = element_text(size = 9, hjust=0),
@@ -923,7 +953,7 @@ server <- function(input, output, session) {
   # Create gt Table
   output$table <- render_gt({
   
-  dframe <- filtered_players()  %>%  select('PLAYER_ID', 'PLAYER_NAME', 'SEASON', 'STANDARDIZED_POSITION', 'School', 'Country', 'HEIGHT_WO_SHOES_FT_IN',
+  dframe <- filtered_players()  %>%  select('PLAYER_ID', 'PLAYER_NAME', 'SEASON', 'STANDARDIZED_POSITION', 'School', 'Country','BIG_BOARD_RANK_t', 'HEIGHT_WO_SHOES_FT_IN',
                    'WEIGHT', 'WINGSPAN_FT_IN', 'STANDING_REACH_FT_IN', 'STANDING_VERTICAL_LEAP', 
                    'MAX_VERTICAL_LEAP', 'LANE_AGILITY_TIME', 'MODIFIED_LANE_AGILITY_TIME','THREE_QUARTER_SPRINT', 'HAND_LENGTH', 'HAND_WIDTH')
   
@@ -966,6 +996,7 @@ server <- function(input, output, session) {
                 STANDARDIZED_POSITION = " ",
                 School = "",
                 Country = "",
+                BIG_BOARD_RANK_t = "",
                 HEIGHT_WO_SHOES_FT_IN = "HEIGHT (ft, in)",
                 WEIGHT = "WEIGHT (lbs)",
                 WINGSPAN_FT_IN = "WINGSPAN (ft, in)",
@@ -990,41 +1021,48 @@ server <- function(input, output, session) {
     
     #Merge name, school, country, season, and position into a single column (PLAYER_NAME), and configure the formatting with HTML
      cols_merge(
-       columns = c(PLAYER_NAME, School, Country, SEASON, STANDARDIZED_POSITION),
-       pattern = "{1}||{2}||{3}||{4}||{5}"
+       columns = c(PLAYER_NAME, School, Country, SEASON, STANDARDIZED_POSITION, BIG_BOARD_RANK_t),
+       pattern = "{1}||{2}||{3}||{4}||{5}||{6}"
      )  %>% 
     
-     text_transform(
-       locations = cells_body(columns = PLAYER_NAME),
-       fn = function(x){
-          split_vals <- strsplit(x, "\\|\\|", fixed = FALSE)
-          
-          lapply(split_vals, function(parts) {
+    text_transform(
+      locations = cells_body(columns = PLAYER_NAME),
+      fn = function(x) {
+        split_vals <- strsplit(x, "\\|\\|", fixed = FALSE)
+        
+        lapply(split_vals, function(parts) {
           
           name <- parts[1]  
           school <- parts[2]
           country <- parts[3]
           szn <- parts[4]
           position <- parts[5]
+          ranking <- parts[6]  
           
-          glue::glue(
-          "<div>
-            <span style='font-weight:bold; font-size:14.5px'>{name}</span>
-            <span style='font-weight:bold;color:grey;font-size:12px';> {position}</span>
-          </div>
+          ranking_html <- if (!is.na(ranking) && nzchar(ranking)) {
+            glue("<span style='font-weight:normal;color:grey;font-size:11.5px'>{ranking}</span>")
+          } else {
+            ""
+          }
           
-          <div style='line-height:16px'>
-            <span style ='font-weight:normal;color:grey;font-size:11.5px'>{szn} | {country}</span>
-          </div>
-          
-          <div style='line-height:16px'>
-          <span style ='font-weight:normal;color:grey;font-size:11.5px'>{school} </span>
-          </div>"
-          )
+          glue::glue("
+        <div>
+          {ranking_html}
+          <span style='font-weight:bold; font-size:14.5px'>{name}</span>
+          <span style='font-weight:bold;color:grey;font-size:12px'>{position}</span>
+        </div>
+        
+        <div style='line-height:16px'>
+          <span style='font-weight:normal;color:grey;font-size:11.5px'>{szn} | {country}</span>
+        </div>
+        
+        <div style='line-height:16px'>
+          <span style='font-weight:normal;color:grey;font-size:11.5px'>{school}</span>
+        </div>
+      ")
         })
-       }
-          
-    )  %>% 
+      }
+    ) %>% 
      
     #Align column labels to the center for the measurement columns
      tab_style(
@@ -1107,7 +1145,7 @@ server <- function(input, output, session) {
                               X...,
                               GmSc) %>% 
       arrange(desc(GmSc)) %>%
-      gt() %>% 
+      gt(id="scrim") %>% 
       
       #Horizontally align table cell text to center 
       tab_style(
@@ -1233,7 +1271,7 @@ server <- function(input, output, session) {
       # tab_header(
       #   title = html("<div style='max-width:600px; margin: 0 auto; font-weight:bold;'>NBA Draft Combine Scrimmage History</div>"),
       #   subtitle = html("<div style='max-width:600px; margin: 0 auto;'>Players sorted by Game Score (GS) by default</div>")
-      # ) %>% 
+      # ) %>%
       
       tab_options(
         table.background.color = 'floralwhite',
@@ -1242,7 +1280,7 @@ server <- function(input, output, session) {
         table.font.size = 13.5,
         table.margin.left = px(5),
         table.margin.right = px(5),
-        table.width = 1350,
+        #table.width = 1350,
         heading.title.font.size = 24,
         heading.title.font.weight = 'bold',
         heading.subtitle.font.size = 14,
@@ -1255,7 +1293,35 @@ server <- function(input, output, session) {
       
       gt_color_rows(c(GmSc), palette = custom_palette, direction = 1, domain = c(minimum, maximum)) %>%
       
-      opt_interactive(use_highlight = TRUE, use_page_size_select = TRUE, page_size_default = 10, page_size_values = c(10, 15, 25, 50))
+      opt_interactive(use_highlight = TRUE, use_page_size_select = TRUE, use_search = TRUE, page_size_default = 10, page_size_values = c(10, 15, 25, 50)) %>% 
+      
+      opt_css(
+        css = "
+        
+        /* Center vertical alignment of table body cells */
+        #scrim div.rt-tr > div:nth-child(n+2) {
+        display: flex;
+        align-items: center;
+        }
+        
+        /* Modify the search bar */
+        input.rt-search {
+          margin-right: auto;
+          margin-left: 0;
+          width: 250px;
+          margin-bottom: 5px;
+          position: relative;
+          z-index: 4;
+        }
+        
+        /* Make interactive table headers bold and white */
+        #scrim .rt-thead .rt-th {
+          font-weight: bold;
+          color: white;
+          background-color: #666666;
+        }
+      "
+    )
     
   })
 }
