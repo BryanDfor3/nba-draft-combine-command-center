@@ -72,8 +72,7 @@ Open `nba_draft_combine_shiny_app.R` in R Studio and click "Run App"
 
 ## Data Availability
 - **Measurements Data:** Data dates back to the 2000 NBA Draft Combine (individual player participation may vary)
-- **Scrimmage Data:** I have been able to track down the box scores from all four scrimmages for each NBA Draft Combine back to 2021, as well as one scrimmage box score from 2018 and 2019. This data will grow incrementally and be consolidated into `combine_scrimmage_boxscores.csv` with the assistance of generative AI to minimize the manual workload - however, I am limited to only three files per day
-
+- **Scrimmage Data:** I have been able to track down the box scores from all four scrimmages for each NBA Draft Combine back to 2021, as well as one scrimmage box score from 2018 and 2019. Has beeen consolidated into `combine_scrimmage_boxscores.csv`
 ## Outcomes
 - Identified Cedric Coward and Yanic Konan Niederhauser (both 2025 draft prospects) as having two of the five best combine measurements relative to their position in combine history. Coward and Niederhauser were ranked #31 and #60 in consensus mock drafts before the combine, and ended up being drafted #11 and #30 respectively, likely in part due to their strong combine performances.
 - Given that the New Orleans Pelicans traded a 2026 unprotected first round pick to move up to #13 from #23, it can be argued that Coward's rise (#31 to #11) is of equal or higher value to New Orleans' perceived value of their 2026 pick
